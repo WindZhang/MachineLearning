@@ -1,0 +1,92 @@
+---
+title: "ML-project"
+author: "wind"
+date: "2015年12月26日"
+output: html_document
+---
+This is homework of ML project.
+
+## Clean the original files, since there are lots of NAs in the original dataset, using the excel to omnit the columns which contain the NAs.
+
+
+```{r, cache= TRUE}
+## Loading the needed libraries
+library(caret)
+library(randomForest)
+library(dplyr)
+# load the dataset with the selected feilds.
+pmlTraining <- read.csv("C:/Users/windbike/Desktop/pml-training-clean.csv", header=TRUE)
+## only 53 variations left
+names(pmlTraining)
+# load the test file
+pmlTesting <- read.csv("C:/Users/windbike/Desktop/pml-testing.csv", header=TRUE)
+
+```
+
+## Create the partitions
+```{r, cache = TRUE}
+
+set.seed(1235)
+inTrain <- createDataPartition(y=pmlTraining$classe,p=0.75, list=FALSE)
+training <- pmlTraining[inTrain,]
+testing <- pmlTraining[-inTrain,]
+
+```
+## Using the randomForest to train the model
+```{r, cache= TRUE}
+
+set.seed(1236)
+
+modelFit1 <- randomForest(classe~., data=training, importance=TRUE, mtry = 7, na.action = na.omit)
+
+# print the modelFit
+modelFit1
+```
+## Using train(caret) with mothod RF to train the model
+
+```{r, cache =TRUE}
+set.seed(1236)
+
+library(doParallel)
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
+tc <- trainControl(method="boot",number=25)
+
+modelFit2 <- train(classe~., data = training, method = "rf", trcControl=tc)
+
+stopCluster(cl)
+modelFit2
+
+```
+
+
+## Verify the testing dataset using the modelFit1 and modelFit2
+```{r, cache= TRUE}
+predictTest1 <- predict(modelFit1, newdata = testing)
+predictTest1 <- data.frame(predictTest1)
+
+predictTest2 <- predict(modelFit2, newdata = testing)
+predictTest2 <- data.frame(predictTest2)
+
+verify <- cbind(testing$classe, predictTest1, predictTest2)
+verify <- mutate(verify, accurate1 = (testing$classe == predictTest1),accurate2 = (testing$classe == predictTest2)  )
+# Calcuate the accurate of predication
+rate1 <- sum(verify$accurate1 == TRUE)/length(verify$predictTest1)
+rate2 <- sum(verify$accurate2 == TRUE)/length(verify$predictTest2)
+# print rate by RandomForest
+print(rate1)
+# print rate by train with the method "rf"
+print(rate2)
+
+## the accurate is quite high, so use the 2 models to predict the 20 cases.
+# predict the values of the submission
+
+predict20 <- predict(modelFit1, newdata = pmlTesting)
+print(predict20)
+
+predict20 <- predict(modelFit2, newdata = pmlTesting)
+print(predict20)
+
+```
+## The result is the same by two means of modeling.
+
